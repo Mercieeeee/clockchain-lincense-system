@@ -94,6 +94,10 @@
         success (unwrap-panic (as-max-len? (append previous-results success) u50))
         error previous-results)) ;; Return previous successful results if error occurs
 
+(define-public (check-admin)
+;; Checks if the transaction sender is the admin
+(ok (is-eq tx-sender admin)))
+
 (define-public (revoke-license (license-id uint))
     ;; Revokes a specific license and updates the revoked licenses map
     (let 
@@ -105,6 +109,54 @@
         (try! (nft-burn? license-token license-id current-holder)) ;; Burn the NFT for the license
         (map-set revoked-licenses license-id true) ;; Mark the license as revoked
         (ok true))) ;; Return success
+
+(define-public (check-license-exists (license-id uint))
+;; Checks if a license exists by looking up its metadata
+(ok (is-some (map-get? license-metadata license-id))))
+
+
+(define-public (does-license-exist (license-id uint))
+;; Checks if the license exists by its ID
+(ok (is-some (map-get? license-metadata license-id))))
+
+(define-public (increment-last-license-id)
+;; Increments the last issued license ID by 1
+(let 
+    (
+        (new-id (+ (var-get last-license-id) u1))
+    )
+    (var-set last-license-id new-id)
+    (ok new-id)))
+
+(define-public (update-license-metadata-simple (license-id uint) (new-metadata (string-ascii 512)))
+;; Allows the owner to update the metadata of a license
+(begin
+    (let 
+        (
+            (license-owner (unwrap! (nft-get-owner? license-token license-id) err-license-not-found)) ;; Get the current license owner
+        )
+        (asserts! (is-eq license-owner tx-sender) err-unauthorized) ;; Ensure only the owner can update
+        (asserts! (is-valid-metadata new-metadata) err-invalid-metadata) ;; Validate the new metadata
+        (map-set license-metadata license-id new-metadata) ;; Update the metadata for the license
+        (ok true))))
+
+(define-public (check-license-valid (license-id uint))
+;; Checks if a license is valid (not revoked and metadata is valid)
+(let 
+    (
+        (metadata (map-get? license-metadata license-id)) ;; Get the license metadata
+    )
+    (begin
+        (asserts! (is-some metadata) err-license-not-found) ;; Ensure license exists
+        (let
+            (
+                (is-revoked (is-license-revoked license-id)) ;; Check if license is revoked
+            )
+            (ok (and (not is-revoked) (is-some metadata)))))))
+
+(define-public (check-license-holder (license-id uint))
+;; Checks the holder of a specific license
+(ok (nft-get-owner? license-token license-id)))
 
 (define-public (transfer-license (license-id uint) (sender principal) (recipient principal))
     ;; Transfers a license from one user to another
@@ -118,3 +170,76 @@
             (asserts! (is-eq actual-sender sender) err-unauthorized) ;; Ensure the sender matches the license holder
             (try! (nft-transfer? license-token license-id sender recipient)) ;; Transfer the license NFT
             (ok true)))) ;; Return success
+
+(define-public (update-license-metadata (license-id uint) (new-metadata (string-ascii 512)))
+    ;; Updates the metadata for an existing license
+    (begin
+        (let 
+            (
+                (license-owner (unwrap! (nft-get-owner? license-token license-id) err-license-not-found)) ;; Get the current license owner
+            )
+            (asserts! (is-eq license-owner tx-sender) err-unauthorized) ;; Ensure only the owner can update
+            (asserts! (is-valid-metadata new-metadata) err-invalid-metadata) ;; Validate the new metadata
+            (map-set license-metadata license-id new-metadata) ;; Update the metadata for the license
+            (ok true)))) ;; Return success
+
+;; Read-Only Functions
+
+(define-read-only (get-license-metadata (license-id uint))
+    ;; Retrieves the metadata for a specific license
+    (ok (map-get? license-metadata license-id)))
+
+(define-read-only (get-license-holder (license-id uint))
+    ;; Retrieves the current holder of a license
+    (ok (nft-get-owner? license-token license-id)))
+
+(define-read-only (get-license-owner (license-id uint))
+;; Retrieves the owner of a license
+(ok (nft-get-owner? license-token license-id)))
+
+(define-read-only (verify-license-existence (license-id uint))
+;; Verifies if the license exists by checking if it has metadata
+(ok (is-some (map-get? license-metadata license-id))))
+
+(define-read-only (get-license-metadata-simple (license-id uint))
+;; Retrieves the metadata for a specific license, returns null if not found
+(ok (map-get? license-metadata license-id)))
+
+(define-read-only (is-license-revoked-simple (license-id uint))
+;; Checks if a specific license is revoked
+(ok (is-license-revoked license-id)))
+
+(define-read-only (get-license-holder-simple (license-id uint))
+;; Retrieves the holder of a license (simplified return)
+(ok (unwrap! (nft-get-owner? license-token license-id) err-license-not-found)))
+
+(define-read-only (get-last-license-id-simple)
+;; Retrieves the last issued license ID
+(ok (var-get last-license-id)))
+
+(define-read-only (get-last-license-id)
+    ;; Retrieves the ID of the most recently issued license
+    (ok (var-get last-license-id)))
+
+(define-read-only (check-license-valid-simple (license-id uint))
+;; Checks if a license exists and is valid (not revoked)
+(let 
+    (
+        (metadata (map-get? license-metadata license-id)) ;; Get the license metadata
+    )
+    (ok (and (is-some metadata) (not (is-license-revoked license-id))))))
+
+(define-read-only (check-license-revoked-simple (license-id uint))
+;; Checks if a license has been revoked and returns true/false
+(ok (is-license-revoked license-id)))
+
+(define-read-only (check-license-revoked (license-id uint))
+    ;; Checks if a license has been revoked
+    (ok (is-license-revoked license-id)))
+
+
+;; Contract Initialization
+
+(begin
+    ;; Initializes the contract by setting the last issued license ID to 0
+    (var-set last-license-id u0))
