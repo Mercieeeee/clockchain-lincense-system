@@ -233,11 +233,6 @@
 ;; Checks if a license has been revoked and returns true/false
 (ok (is-license-revoked license-id)))
 
-(define-read-only (check-license-revoked (license-id uint))
-    ;; Checks if a license has been revoked
-    (ok (is-license-revoked license-id)))
-
-
 ;; Contract Initialization
 
 (begin
