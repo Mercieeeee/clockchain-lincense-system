@@ -51,6 +51,14 @@
 
 ;; Core Functionality
 
+(define-private (verify-metadata-length (metadata (string-ascii 512)))
+;; Verifies that the metadata length is between 1 and 512 characters
+(let
+    (
+        (metadata-len (len metadata))
+    )
+    (ok (and (> metadata-len u0) (<= metadata-len u512)))))
+
 (define-private (grant-license-single (metadata (string-ascii 512)))
     ;; Grants a single license with specified metadata
     (let 
@@ -110,10 +118,10 @@
         (map-set revoked-licenses license-id true) ;; Mark the license as revoked
         (ok true))) ;; Return success
 
+
 (define-public (check-license-exists (license-id uint))
 ;; Checks if a license exists by looking up its metadata
 (ok (is-some (map-get? license-metadata license-id))))
-
 
 (define-public (does-license-exist (license-id uint))
 ;; Checks if the license exists by its ID
@@ -158,6 +166,7 @@
 ;; Checks the holder of a specific license
 (ok (nft-get-owner? license-token license-id)))
 
+
 (define-public (transfer-license (license-id uint) (sender principal) (recipient principal))
     ;; Transfers a license from one user to another
     (begin
@@ -201,6 +210,10 @@
 ;; Verifies if the license exists by checking if it has metadata
 (ok (is-some (map-get? license-metadata license-id))))
 
+(define-read-only (get-license-owner-simple (license-id uint))
+;; Retrieves the owner of a specific license
+(ok (nft-get-owner? license-token license-id)))
+
 (define-read-only (get-license-metadata-simple (license-id uint))
 ;; Retrieves the metadata for a specific license, returns null if not found
 (ok (map-get? license-metadata license-id)))
@@ -229,8 +242,29 @@
     )
     (ok (and (is-some metadata) (not (is-license-revoked license-id))))))
 
+(define-read-only (check-license-exists-simple (license-id uint))
+;; Checks if a license exists by its ID
+(ok (is-some (map-get? license-metadata license-id))))
+
 (define-read-only (check-license-revoked-simple (license-id uint))
 ;; Checks if a license has been revoked and returns true/false
+(ok (is-license-revoked license-id)))
+
+(define-read-only (is-license-id-valid (license-id uint))
+;; Validates if a license ID is within the range of issued licenses
+(ok (and (> license-id u0) (<= license-id (var-get last-license-id)))))
+
+
+(define-read-only (get-total-licenses-issued)
+;; Returns the last issued license ID, representing total licenses issued
+(ok (var-get last-license-id)))
+
+(define-read-only (is-license-revoked-light (license-id uint))
+;; Returns true if the license has been revoked, false otherwise
+(ok (default-to false (map-get? revoked-licenses license-id))))
+
+(define-read-only (get-revocation-status (license-id uint))
+;; Checks if a specific license has been revoked
 (ok (is-license-revoked license-id)))
 
 ;; Contract Initialization
