@@ -267,6 +267,26 @@
 ;; Checks if a specific license has been revoked
 (ok (is-license-revoked license-id)))
 
+(define-read-only (is-admin)
+;; Verifies if the transaction sender is the admin
+(ok (is-eq tx-sender admin)))
+
+(define-read-only (retrieve-metadata (license-id uint))
+;; Retrieves metadata directly for a license or returns none
+(ok (map-get? license-metadata license-id)))
+
+(define-read-only (get-license-status (license-id uint))
+;; Retrieves the status of a license
+(if (is-some (map-get? license-metadata license-id))
+    (if (is-license-revoked license-id)
+        (ok "Revoked")
+        (ok "Valid"))
+    (ok "Not Found")))
+
+(define-read-only (get-total-licenses)
+;; Retrieves the total number of licenses issued so far
+(ok (var-get last-license-id)))
+
 ;; Contract Initialization
 
 (begin
